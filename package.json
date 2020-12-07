@@ -1,0 +1,44 @@
+{
+  "name": "my-future",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build --report",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "@turf/turf": "^5.1.6",
+    "ant-design-vue": "^1.7.2",
+    "axios": "^0.21.0",
+    "cesium": "^1.76.0",
+    "core-js": "^3.6.5",
+    "mapbox-gl": "^1.12.0",
+    "vue": "^2.6.11",
+    "vue-router": "^3.2.0",
+    "vuex": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-plugin-router": "~4.5.0",
+    "@vue/cli-plugin-vuex": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "@vue/eslint-config-prettier": "^6.0.0",
+    "babel-eslint": "^10.1.0",
+    "babel-plugin-import": "^1.13.1",
+    "compression-webpack-plugin": "^6.1.0",
+    "copy-webpack-plugin": "^5.1.2",
+    "eslint": "^6.7.2",
+    "eslint-plugin-prettier": "^3.1.3",
+    "eslint-plugin-vue": "^6.2.2",
+    "less": "^3.12.2",
+    "less-loader": "^7.1.0",
+    "prettier": "^1.19.1",
+    "sass": "^1.26.5",
+    "sass-loader": "^8.0.2",
+    "strip-pragma-loader": "^1.0.0",
+    "terser-webpack-plugin": "^4.2.3",
+    "vue-template-compiler": "^2.6.11"
+  }
+}
