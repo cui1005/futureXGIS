@@ -4,7 +4,9 @@
 
 <script>
 import Vue from 'vue'
+import flightData from '@/map/data/flightData'
 import {
+  Ion,
   Viewer,
   WebMercatorProjection,
   Color,
@@ -12,20 +14,31 @@ import {
   // ArcGisMapServerImageryProvider,
   UrlTemplateImageryProvider,
   CesiumTerrainProvider,
-  Transforms,
+  JulianDate,
+  SampledPositionProperty,
   Cartesian3,
-  Model,
-  when,
+  IonResource,
+  TimeIntervalCollection,
+  TimeInterval,
+  VelocityOrientationProperty,
+  PathGraphics
+  // Transforms,
+  // Cartesian3,
+  // Model,
+  // when,
   // Math,
-  ModelAnimationLoop,
-  Cartographic,
-  sampleTerrain
+  // ModelAnimationLoop,
+  // Cartographic,
+  // sampleTerrain
   // CzmlDataSource
 } from 'Cesium'
 
 export default {
   name: 'ViewerContent',
   mounted() {
+    // Get your token from https://cesium.com/ion/tokens
+    Ion.defaultAccessToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlZjlmMTk4MC1iNzUyLTQ5MzUtOTViNC03N2ExMTY2ZGRiNzMiLCJpZCI6Mzg2MTIsImlhdCI6MTYwNjU1NzIwNX0.WVSK2TdR0-REXwNmhPpJM-0USnRSAWndIWvykuoFdAI'
     const viewer = new Viewer('scene', {
       geocoder: true, // 是否显示地名查找控件
       sceneModePicker: true, // 是否显示投影方式控件
@@ -33,8 +46,8 @@ export default {
       baseLayerPicker: false, // 是否显示图层选择控件
       homeButton: true, // 是否显示Home按钮
       fullscreenButton: true, // 是否显示全屏按钮
-      timeline: false, // 时间轴控件
-      animation: false, // 动画控件
+      timeline: true, // 时间轴控件
+      animation: true, // 动画控件
       shouldAnimate: true,
       // Show Columbus View map with Web Mercator projection
       mapProjection: new WebMercatorProjection(),
@@ -72,55 +85,75 @@ export default {
     viewer.scene.globe.baseColor = Color.fromCssColorString('#546a53')
     viewer.scene.debugShowFramesPerSecond = true
 
-    // debugger
-    // //加载gltf格式数据到cesium
-    var scene = viewer.scene
-    var positions = [
-      Cartographic.fromDegrees(110.62898254394531, 40.02804946899414) //输入经纬度
-    ]
-    var promise = sampleTerrain(viewer.terrainProvider, 14, positions) //获取14级地形高程
-    when(promise, updatedPositions => {
-      var terrainHeight = updatedPositions[0].height
-      var modelMatrix = Transforms.eastNorthUpToFixedFrame(
-        Cartesian3.fromDegrees(
-          110.62898254394531,
-          40.02804946899414,
-          terrainHeight
-        )
-      ) //gltf数据加载位置
+    /* Initialize the viewer clock:
+      Assume the radar samples are 30 seconds apart, and calculate the entire flight duration based on that assumption.
+      Get the start and stop date times of the flight, where the start is the known flight departure time (converted from PST 
+        to UTC) and the stop is the start plus the calculated duration. (Note that Cesium uses Julian dates. See 
+        https://simple.wikipedia.org/wiki/Julian_day.)
+      Initialize the viewer's clock by setting its start and stop to the flight start and stop times we just calculated. 
+      Also, set the viewer's current time to the start time and take the user to that time. 
+    */
+    const timeStepInSeconds = 30
+    const totalSeconds = timeStepInSeconds * (flightData.length - 1)
+    const start = JulianDate.fromIso8601('2020-03-09T23:10:00Z')
+    const stop = JulianDate.addSeconds(start, totalSeconds, new JulianDate())
+    viewer.clock.startTime = start.clone()
+    viewer.clock.stopTime = stop.clone()
+    viewer.clock.currentTime = start.clone()
+    viewer.timeline.zoomTo(start, stop)
+    // Speed up the playback speed 50x.
+    viewer.clock.multiplier = 50
+    // Start playing the scene.
+    viewer.clock.shouldAnimate = true
 
-      var model = scene.primitives.add(
-        Model.fromGltf({
-          // url: 'http://data.marsgis.cn/gltf/mars/qiche.gltf', //如果为bgltf则为.bgltf
-          url:
-            'http://192.168.43.217:8080/Apps/SampleData/models/CesiumMan/Cesium_Man.glb', //如果为bgltf则为.bgltf
-          modelMatrix: modelMatrix,
-          scale: 10.0 //放大倍数
-        })
+    // The SampledPositionedProperty stores the position and timestamp for each sample along the radar sample series.
+    const positionProperty = new SampledPositionProperty()
+
+    for (let i = 0; i < flightData.length; i++) {
+      const dataPoint = flightData[i]
+
+      // Declare the time for this individual sample and store it in a new JulianDate instance.
+      const time = JulianDate.addSeconds(
+        start,
+        i * timeStepInSeconds,
+        new JulianDate()
       )
-      // （非常重要) 加载模型动画，model为模型变量，
-      // 有两处model.readyPromise和model.activeAnimations……读者可自行替换
-      when(model.readyPromise).then(() => {
-        model.activeAnimations.addAll({
-          loop: ModelAnimationLoop.REPEAT
-        })
-        viewer.camera.flyTo({
-          //相机飞入点
-          destination: Cartesian3.fromDegrees(
-            110.62898254394531,
-            40.02804946899414,
-            terrainHeight + 10
-          )
-        })
-      })
-    })
+      const position = Cartesian3.fromDegrees(
+        dataPoint.longitude,
+        dataPoint.latitude,
+        dataPoint.height
+      )
+      // Store the position along with its timestamp.
+      // Here we add the positions all upfront, but these can be added at run-time as samples are received from a server.
+      positionProperty.addSample(time, position)
 
-    // var dataSourcePromise = CzmlDataSource.load(
-    //   // 'http://data.marsgis.cn/file/czml/car.czml',
-    //   'http://192.168.43.217:8080/Apps/SampleData/Vehicle.czml'
-    // )
-    // viewer.dataSources.add(dataSourcePromise)
-    // viewer.zoomTo(dataSourcePromise)
+      viewer.entities.add({
+        description: `Location: (${dataPoint.longitude}, ${dataPoint.latitude}, ${dataPoint.height})`,
+        position: position,
+        point: { pixelSize: 10, color: Color.RED }
+      })
+    }
+
+    // STEP 6 CODE (airplane entity)
+    async function loadModel() {
+      // Load the glTF model from Cesium ion.
+      const airplaneUri = await IonResource.fromAssetId(199645)
+      const airplaneEntity = viewer.entities.add({
+        availability: new TimeIntervalCollection([
+          new TimeInterval({ start: start, stop: stop })
+        ]),
+        position: positionProperty,
+        // Attach the 3D model instead of the green point.
+        model: { uri: airplaneUri },
+        // Automatically compute the orientation from the position.
+        orientation: new VelocityOrientationProperty(positionProperty),
+        path: new PathGraphics({ width: 3 })
+      })
+
+      viewer.trackedEntity = airplaneEntity
+    }
+
+    loadModel()
   }
 }
 </script>
