@@ -12,7 +12,11 @@ module.exports = {
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'space-before-function-paren': [
       'error',
-      { anonymous: 'never', named: 'never', asyncArrow: 'never' }
+      {
+        anonymous: 'never',
+        named: 'never',
+        asyncArrow: 'never'
+      }
     ]
   }
 }

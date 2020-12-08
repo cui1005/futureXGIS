@@ -176,7 +176,7 @@ module.exports = {
     proxy: {
       '/api': {
         target: 'http://dwgis.dworld.net.cn',
-        ws: true
+        ws: false
       }
     }
   }
